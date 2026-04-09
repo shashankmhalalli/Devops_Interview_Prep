@@ -1,0 +1,127 @@
+stages:
+  - build
+  - docker
+  - scan
+  - deploy_dev
+  - deploy_stage
+  - deploy_prod
+
+variables:
+  AWS_REGION: us-east-1
+  ECR_REPO: <aws-account-id>.dkr.ecr.$AWS_REGION.amazonaws.com/java-app
+  IMAGE_TAG: $CI_COMMIT_SHA
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+# -------------------------
+# GLOBAL CACHE (MAVEN)
+# -------------------------
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .m2/repository
+
+# -------------------------
+# BUILD JAVA APP
+# -------------------------
+build:
+  stage: build
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn clean package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+
+# -------------------------
+# DOCKER BUILD & PUSH
+# -------------------------
+docker_build:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - apk add --no-cache python3 py3-pip
+    - pip3 install awscli
+    - aws ecr get-login-password --region $AWS_REGION \
+      | docker login --username AWS --password-stdin $ECR_REPO
+  script:
+    # Optional: enable Docker layer caching (if runner supports it)
+    - docker pull $ECR_REPO:latest || true
+    - docker build --cache-from $ECR_REPO:latest -t $ECR_REPO:$IMAGE_TAG .
+    - docker tag $ECR_REPO:$IMAGE_TAG $ECR_REPO:latest
+    - docker push $ECR_REPO:$IMAGE_TAG
+    - docker push $ECR_REPO:latest
+
+# -------------------------
+# IMAGE SECURITY SCAN
+# -------------------------
+scan:
+  stage: scan
+  image: aquasec/trivy
+  script:
+    - trivy image --severity HIGH,CRITICAL --exit-code 1 $ECR_REPO:$IMAGE_TAG
+
+# -------------------------
+# DEPLOY DEV
+# -------------------------
+deploy_dev:
+  stage: deploy_dev
+  image: alpine:3.19
+  environment:
+    name: dev
+  before_script:
+    - apk add --no-cache curl bash python3 py3-pip
+    - pip3 install awscli
+    - aws eks update-kubeconfig --region $AWS_REGION --name dev-eks
+    - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  script:
+    - helm upgrade --install java-app ./helm \
+        --set image.repository=$ECR_REPO \
+        --set image.tag=$IMAGE_TAG
+  only:
+    - develop
+
+# -------------------------
+# DEPLOY STAGE
+# -------------------------
+deploy_stage:
+  stage: deploy_stage
+  image: alpine:3.19
+  environment:
+    name: stage
+  before_script:
+    - apk add --no-cache curl bash python3 py3-pip
+    - pip3 install awscli
+    - aws eks update-kubeconfig --region $AWS_REGION --name stage-eks
+    - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  script:
+    - helm upgrade --install java-app ./helm \
+        --set image.repository=$ECR_REPO \
+        --set image.tag=$IMAGE_TAG
+  when: manual
+  only:
+    - main
+
+# -------------------------
+# DEPLOY PROD
+# -------------------------
+deploy_prod:
+  stage: deploy_prod
+  image: alpine:3.19
+  environment:
+    name: production
+  before_script:
+    - apk add --no-cache curl bash python3 py3-pip
+    - pip3 install awscli
+    - aws eks update-kubeconfig --region $AWS_REGION --name prod-eks
+    - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  script:
+    - helm upgrade --install java-app ./helm \
+        --set image.repository=$ECR_REPO \
+        --set image.tag=$IMAGE_TAG
+  when: manual
+  only:
+    - main
