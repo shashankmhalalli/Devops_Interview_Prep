@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOps Project 5 — Terraform + Ansible</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 48px 56px;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+    .badge {
+      display: inline-block;
+      background: #0ea5e9;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 2rem; font-weight: 700; color: #f8fafc; margin-bottom: 12px; }
+    .subtitle { color: #94a3b8; font-size: 1rem; line-height: 1.6; margin-bottom: 32px; }
+    .stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    .tag {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #7dd3fc;
+      font-size: 13px;
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-family: monospace;
+    }
+    .divider { border: none; border-top: 1px solid #334155; margin: 24px 0; }
+    .meta { font-size: 13px; color: #64748b; }
+    .meta span { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Deployed via Ansible</div>
+    <h1>🚀 It works!</h1>
+    <p class="subtitle">
+      This server was provisioned with <strong>Terraform</strong> and configured
+      with <strong>Ansible</strong> as part of DevOps hands-on Project 5.
+    </p>
+    <div class="stack">
+      <span class="tag">Terraform</span>
+      <span class="tag">Ansible</span>
+      <span class="tag">AWS EC2</span>
+      <span class="tag">VPC</span>
+      <span class="tag">Nginx</span>
+    </div>
+    <hr class="divider">
+    <p class="meta">
+      Server: <span id="host">loading...</span>
+    </p>
+  </div>
+  <script>
+    document.getElementById('host').textContent = window.location.hostname;
+  </script>
+</body>
+</html>
