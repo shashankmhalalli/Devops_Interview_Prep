@@ -1,5 +1,6 @@
 stages:
   - build
+  - test
   - docker
   - scan
   - deploy_dev
@@ -11,6 +12,8 @@ variables:
   ECR_REPO: <aws-account-id>.dkr.ecr.$AWS_REGION.amazonaws.com/java-app
   IMAGE_TAG: $CI_COMMIT_SHA
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  SONARQUBE_HOST_URL: https://your-sonarqube-instance.com
+  SONARQUBE_TOKEN: $SONARQUBE_TOKEN
 
 # -------------------------
 # GLOBAL CACHE (MAVEN)
@@ -31,6 +34,58 @@ build:
   artifacts:
     paths:
       - target/*.jar
+
+# -------------------------
+# TEST STAGE - PARALLEL JOBS
+# -------------------------
+unit_tests:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn test
+  artifacts:
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+    paths:
+      - target/surefire-reports/
+  coverage: '/Coverage: \d+\.\d+%/'
+sast:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn install -DskipTests
+    - mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+        -Dsonar.projectKey=$CI_PROJECT_NAME \
+        -Dsonar.sources=src \
+        -Dsonar.host.url=$SONARQUBE_HOST_URL \
+        -Dsonar.login=$SONARQUBE_TOKEN \
+        -Dsonar.qualitygate.wait=true
+  allow_failure: true
+secret_scanning:
+  stage: test
+  image: zricethezav/gitleaks:latest
+  script:
+    - gitleaks detect --source . --verbose --report-path gitleaks-report.json
+  artifacts:
+    reports:
+      sast: gitleaks-report.json
+    paths:
+      - gitleaks-report.json
+  allow_failure: true
+sonarqube:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn clean verify sonar:sonar \
+        -Dsonar.projectKey=$CI_PROJECT_NAME \
+        -Dsonar.sources=src \
+        -Dsonar.tests=src/test \
+        -Dsonar.host.url=$SONARQUBE_HOST_URL \
+        -Dsonar.login=$SONARQUBE_TOKEN \
+        -Dsonar.qualitygate.wait=true \
+        -DskipTests
+  allow_failure: true
 
 # -------------------------
 # DOCKER BUILD & PUSH
@@ -87,7 +142,7 @@ deploy_dev:
 # -------------------------
 # DEPLOY STAGE
 # -------------------------
-deploy_stage:
+deply_stage:
   stage: deploy_stage
   image: alpine:3.19
   environment:
@@ -108,7 +163,7 @@ deploy_stage:
 # -------------------------
 # DEPLOY PROD
 # -------------------------
-deploy_prod:
+deply_prod:
   stage: deploy_prod
   image: alpine:3.19
   environment:
